@@ -1,0 +1,13 @@
+export const PRODUCT_STATUS = {
+  AVAILABLE: 1,
+  IN_USE: 2,
+  MAINTENANCE: 3,
+  RETIRED: 4,
+};
+
+export const TRANSACTION_STATUS = {
+  ISSUED: 1,
+  RETURNED: 2,
+  OVERDUE: 3,
+  LOST: 4,
+};
