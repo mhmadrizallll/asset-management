@@ -1,0 +1,6 @@
+export const PRODUCT_STATUS = {
+  AVAILABLE: 1,
+  IN_USE: 2,
+  MAINTENANCE: 3,
+  RETIRED: 4,
+};

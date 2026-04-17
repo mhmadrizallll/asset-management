@@ -1,7 +1,7 @@
 import { Knex } from "knex";
 
 export async function seed(knex: Knex): Promise<void> {
-  // 🔥 Hapus data dulu (biar gak duplicate)
+  // 🔥 DELETE (urutan dari child → parent)
   await knex("transaction_items").del();
   await knex("transactions").del();
   await knex("products").del();
@@ -9,6 +9,13 @@ export async function seed(knex: Knex): Promise<void> {
   await knex("locations").del();
   await knex("product_types").del();
   await knex("categories").del();
+  await knex("transaction_statuses").del(); // ✅ tambah ini
+
+  // ✅ transaction_statuses (WAJIB DULU)
+  await knex("transaction_statuses").insert([
+    { id: 1, name: "ISSUED" },
+    { id: 2, name: "RETURNED" },
+  ]);
 
   // ✅ categories
   await knex("categories").insert([
@@ -43,6 +50,7 @@ export async function seed(knex: Knex): Promise<void> {
       serial_number: "SN-LAP-001",
       product_type_id: 1,
       current_location_id: 1,
+      status_id: 1, // AVAILABLE (pastikan ada di product_statuses)
     },
     {
       id: 2,
@@ -50,6 +58,7 @@ export async function seed(knex: Knex): Promise<void> {
       serial_number: "SN-MON-001",
       product_type_id: 2,
       current_location_id: 1,
+      status_id: 1,
     },
     {
       id: 3,
@@ -57,16 +66,17 @@ export async function seed(knex: Knex): Promise<void> {
       serial_number: "SN-CHR-001",
       product_type_id: 3,
       current_location_id: 2,
+      status_id: 1,
     },
   ]);
 
-  // ✅ transactions
+  // ✅ transactions (FIX DI SINI)
   await knex("transactions").insert([
     {
       id: 1,
       employee_id: 1,
       issue_date: new Date(),
-      status: "ISSUED",
+      status_id: 1, // ISSUED
     },
   ]);
 

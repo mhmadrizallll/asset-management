@@ -2,16 +2,21 @@ import { Request, Response } from "express";
 import { TransactionService } from "./transaction.service";
 
 export const TransactionController = {
+  async getAll(req: Request, res: Response) {
+    try {
+      const data = await TransactionService.getAll();
+      return res.json({ success: true, message: "Transactions fetched", data });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch transactions",
+        error,
+      });
+    }
+  },
   async create(req: Request, res: Response) {
     try {
       const { employee_id, product_ids } = req.body;
-
-      if (!employee_id || !product_ids?.length) {
-        return res.status(400).json({
-          success: false,
-          message: "employee_id dan product_ids wajib",
-        });
-      }
 
       const data = await TransactionService.create({
         employee_id,
@@ -23,11 +28,10 @@ export const TransactionController = {
         message: "Transaction created",
         data,
       });
-    } catch (error) {
+    } catch (error: any) {
       return res.status(500).json({
         success: false,
-        message: "Failed to create transaction",
-        error,
+        message: error.message,
       });
     }
   },

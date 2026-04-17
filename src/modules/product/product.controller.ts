@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import { ProductService } from "./product.service";
 
+import ExcelJS from "exceljs";
+
 export const ProductController = {
   async getAll(req: Request, res: Response) {
     try {
@@ -91,6 +93,54 @@ export const ProductController = {
       res.status(500).json({
         success: false,
         message: err.message,
+      });
+    }
+  },
+
+  async exportExcel(req: Request, res: Response) {
+    try {
+      const data = await ProductService.exportData();
+
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Products");
+
+      // 🔥 HEADER
+      worksheet.columns = [
+        { header: "Asset Tag", key: "asset_tag", width: 20 },
+        { header: "Serial Number", key: "serial_number", width: 20 },
+        { header: "Status", key: "status", width: 15 },
+        { header: "Product Type", key: "product_type", width: 20 },
+        { header: "Category", key: "category", width: 20 },
+        { header: "Location", key: "location", width: 20 },
+        { header: "Created At", key: "created_at", width: 25 },
+        { header: "Employee", key: "employee", width: 20 },
+        { header: "Issue Date", key: "issue_date", width: 20 },
+        { header: "Return Date", key: "return_date", width: 20 },
+      ];
+
+      // 🔥 DATA
+      data.forEach((item) => {
+        worksheet.addRow(item);
+      });
+
+      // 🔥 RESPONSE HEADER
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+
+      res.setHeader(
+        "Content-Disposition",
+        "attachment; filename=products.xlsx",
+      );
+
+      // 🔥 SEND FILE
+      await workbook.xlsx.write(res);
+      res.end();
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Export failed",
       });
     }
   },
