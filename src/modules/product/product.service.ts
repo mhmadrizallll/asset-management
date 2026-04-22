@@ -5,13 +5,23 @@ import { AssetLogService } from "../asset-log/assetLog.service";
 export const ProductService = {
   async getAll(query: any) {
     const { page = 1, limit = 10, search, status, category } = query;
-
     const offset = (page - 1) * limit;
 
     let baseQuery = db("products as p")
       .leftJoin("product_types as pt", "pt.id", "p.product_type_id")
       .leftJoin("categories as c", "c.id", "pt.category_id")
-      .leftJoin("product_statuses as ps", "ps.id", "p.status_id");
+      .leftJoin("product_statuses as ps", "ps.id", "p.status_id")
+
+      // 🔥 transaksi aktif
+      .leftJoin("transaction_items as ti", "ti.product_id", "p.id")
+      .leftJoin("transactions as t", function () {
+        this.on("t.id", "=", "ti.transaction_id").andOn(
+          "t.status_id",
+          "=",
+          db.raw("1"), // ISSUED
+        );
+      })
+      .leftJoin("employees as e", "e.id", "t.employee_id");
 
     // 🔍 SEARCH
     if (search) {
@@ -24,42 +34,68 @@ export const ProductService = {
       });
     }
 
-    // 🔥 FILTER STATUS (pakai nama)
-    if (status) {
-      baseQuery.where("ps.name", status);
-    }
+    if (status) baseQuery.where("ps.name", status);
+    if (category) baseQuery.where("c.name", category);
 
-    // 🔥 FILTER CATEGORY
-    if (category) {
-      baseQuery.where("c.name", category);
-    }
-
-    // 📊 COUNT TOTAL
+    // 📊 COUNT
     const totalQuery = baseQuery
       .clone()
       .clearSelect()
-      .count("* as total")
+      .countDistinct("p.id as total")
       .first();
 
-    // 📦 DATA
-    const dataQuery = baseQuery
+    // 📦 DATA (🔥 DISTINCT ON biar gak duplicate)
+    const rows = await baseQuery
       .clone()
+      .distinctOn("p.id")
       .select(
         "p.id",
         "p.asset_tag",
         "p.serial_number",
-        "ps.name as status", // ✅ FIX
-        "p.current_location_id",
+
+        "ps.name as status",
+
+        "pt.id as product_type_id",
         "pt.name as product_type",
         "c.name as category",
+
+        "e.id as employee_id",
+        "e.name as employee",
+        "t.issue_date",
       )
+      .orderBy([
+        { column: "p.id", order: "desc" },
+        { column: "t.issue_date", order: "desc" }, // ambil transaksi terbaru
+      ])
       .limit(limit)
-      .offset(offset)
-      .orderBy("p.id", "desc");
+      .offset(offset);
 
-    const [totalResult, data] = await Promise.all([totalQuery, dataQuery]);
-
+    const totalResult = await totalQuery;
     const total = Number(totalResult?.total || 0);
+
+    // 🔥 NESTING
+    const data = rows.map((row) => ({
+      id: row.id,
+      asset_tag: row.asset_tag,
+      serial_number: row.serial_number,
+      status: row.status,
+
+      product_type: {
+        id: row.product_type_id,
+        name: row.product_type,
+        category: row.category,
+      },
+
+      current_transaction: row.employee_id
+        ? {
+            employee: {
+              id: row.employee_id,
+              name: row.employee,
+            },
+            issue_date: row.issue_date,
+          }
+        : null,
+    }));
 
     return {
       data,
@@ -173,15 +209,34 @@ export const ProductService = {
   },
 
   async exportData() {
+    // 🔥 ambil transaksi terakhir per product
+    const latest = db("transaction_items as ti")
+      .join("transactions as t", "t.id", "ti.transaction_id")
+      .select(
+        "ti.product_id",
+        "ti.transaction_id",
+        db.raw(
+          "ROW_NUMBER() OVER (PARTITION BY ti.product_id ORDER BY t.issue_date DESC) as rn",
+        ),
+      )
+      .as("latest");
+
     return await db("products as p")
       .leftJoin("product_types as pt", "pt.id", "p.product_type_id")
       .leftJoin("categories as c", "c.id", "pt.category_id")
       .leftJoin("locations as l", "l.id", "p.current_location_id")
       .leftJoin("product_statuses as ps", "ps.id", "p.status_id")
 
-      // 🔥 TAMBAHAN
-      .leftJoin("transaction_items as ti", "ti.product_id", "p.id")
-      .leftJoin("transactions as t", "t.id", "ti.transaction_id")
+      // 🔥 join ke latest (rn = 1 doang)
+      .leftJoin(latest, function () {
+        this.on("latest.product_id", "=", "p.id").andOn(
+          "latest.rn",
+          "=",
+          db.raw("1"),
+        );
+      })
+
+      .leftJoin("transactions as t", "t.id", "latest.transaction_id")
       .leftJoin("employees as e", "e.id", "t.employee_id")
 
       .select(
@@ -191,11 +246,12 @@ export const ProductService = {
         "pt.name as product_type",
         "c.name as category",
         "l.name as location",
-        "e.name as employee", // ✅ INI YANG KURANG
+        "e.name as employee",
         "t.issue_date",
         "t.return_date",
         "p.created_at",
       )
+
       .orderBy("p.id", "desc");
   },
 };

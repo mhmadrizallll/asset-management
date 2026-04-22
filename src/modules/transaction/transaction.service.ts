@@ -4,19 +4,79 @@ import { PRODUCT_STATUS } from "../../utils/constans";
 
 export const TransactionService = {
   async getAll() {
-    return await db("transactions").select("*").orderBy("id", "desc");
+    const rows = await db("transactions as t")
+      .leftJoin("employees as e", "e.id", "t.employee_id")
+      .leftJoin("transaction_items as ti", "ti.transaction_id", "t.id")
+      .leftJoin("products as p", "p.id", "ti.product_id")
+      .leftJoin("product_statuses as ps", "ps.id", "p.status_id")
+      .leftJoin("transaction_statuses as ts", "ts.id", "t.status_id")
+
+      .select(
+        "t.id as transaction_id",
+        "t.issue_date",
+        "t.return_date",
+
+        "ts.name as status",
+
+        "e.id as employee_id",
+        "e.name as employee_name",
+
+        "ti.id as item_id",
+
+        "p.id as product_id",
+        "p.asset_tag",
+        "p.serial_number",
+        "ps.name as product_status",
+      )
+      .orderBy("t.id", "desc");
+
+    // 🔥 GROUPING MANUAL
+    const map = new Map();
+
+    for (const row of rows) {
+      if (!map.has(row.transaction_id)) {
+        map.set(row.transaction_id, {
+          id: row.transaction_id,
+          status: row.status,
+          issue_date: row.issue_date,
+          return_date: row.return_date,
+
+          employee: {
+            id: row.employee_id,
+            name: row.employee_name,
+          },
+
+          items: [],
+        });
+      }
+
+      // 🔥 push item
+      if (row.item_id) {
+        map.get(row.transaction_id).items.push({
+          id: row.item_id,
+          product: {
+            id: row.product_id,
+            asset_tag: row.asset_tag,
+            serial_number: row.serial_number,
+            status: row.product_status,
+          },
+        });
+      }
+    }
+
+    return Array.from(map.values());
   },
   async create(payload: { employee_id: number; product_ids: number[] }) {
     return await db.transaction(async (trx) => {
       // 🔍 cek transaksi aktif
-      const existing = await trx("transactions")
-        .where("employee_id", payload.employee_id)
-        .where("status_id", 1) // ISSUED
-        .first();
+      // const existing = await trx("transactions")
+      //   .where("employee_id", payload.employee_id)
+      //   .where("status_id", 1) // ISSUED
+      //   .first();
 
-      if (existing) {
-        throw new Error("Employee already has an issued transaction");
-      }
+      // if (existing) {
+      //   throw new Error("Employee already has an issued transaction");
+      // }
 
       // 🔍 cek products
       const products = await trx("products").whereIn("id", payload.product_ids);

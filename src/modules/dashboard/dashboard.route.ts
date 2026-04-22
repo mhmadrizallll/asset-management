@@ -3,6 +3,6 @@ import { DashboardController } from "./dashboard.controller";
 
 const router = Router();
 
-router.get("/", DashboardController.getSummary);
+router.get("/", DashboardController.getDashboard);
 
 export default router;

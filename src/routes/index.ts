@@ -8,6 +8,13 @@ import locationRoutes from "../modules/location/location.route";
 import employeeRoutes from "../modules/employee/employee.route";
 import productLocationRoutes from "../modules/product-location/productLocation.route";
 import assetLogRoutes from "../modules/asset-log/assetLog.route";
+import { authMiddleware } from "../middlewares/auth.middleware";
+import authRoutes from "../modules/auth/auth.route";
+import vendorRoutes from "../modules/vendor/vendor.route";
+import purchaseRoutes from "../modules/purchase/purchase.route";
+import warrantyRoutes from "../modules/warranty/warranty.route";
+import maintenanceRoutes from "../modules/maintenance/maintenance.route";
+import reportRoutes from "../modules/report/report.route";
 
 const router = Router();
 
@@ -20,5 +27,11 @@ router.use("/locations", locationRoutes);
 router.use("/employees", employeeRoutes);
 router.use("/product-locations", productLocationRoutes);
 router.use("/asset-logs", assetLogRoutes);
+router.use("/auth", authRoutes);
+router.use("/vendors", vendorRoutes);
+router.use("/purchases", purchaseRoutes);
+router.use("/warranties", warrantyRoutes);
+router.use("/maintenances", maintenanceRoutes);
+router.use("/reports", reportRoutes);
 
 export default router;
